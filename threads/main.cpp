@@ -89,7 +89,7 @@ int main()
     thds[2] = std::move(thd_3);
     thds[3] = std::move(thd_4);
     thds[4] = std::move(thd_5);
-    thds.push_back(create_thread(5));
+    thds.push_back(create_th+*read(5));
 
     std::cout << "I'm going to sleep" << std::endl;
 
