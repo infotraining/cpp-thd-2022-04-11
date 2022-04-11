@@ -19,6 +19,7 @@ find_package(Threads REQUIRED)
 #----------------------------------------
 # Application
 #----------------------------------------
+set(CMAKE_BUILD_TYPE "Release") 
 
 # Sources
 aux_source_directory(. SRC_LIST)

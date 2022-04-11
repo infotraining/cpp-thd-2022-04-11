@@ -75,4 +75,13 @@ int main()
     }
 
     std::cout << "Main thread ends..." << std::endl;
+
+    ThreadResult<char> rslt;
+    std::thread thd{&background_work, 1, "hello", 10ms, std::ref(rslt)};
+    std::cout << "id: " << thd.get_id() << std::endl;
+    thd.join();
+
+    thd = std::thread{&background_work, 1, "hello", 10ms, std::ref(rslt)};
+    std::cout << "id: " << thd.get_id() << std::endl;
+    thd.join();
 }
