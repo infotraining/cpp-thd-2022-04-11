@@ -8,16 +8,24 @@
 
 using namespace std;
 
-void calculatePi(long noOfTrials, long& result)
+void calculatePi(size_t seed, uint64_t noOfTrials, uint64_t& result)
 {
-    result = 0;
-    for (long n = 0; n < noOfTrials; ++n)
+    mt19937_64 rnd_gen{seed};
+    uniform_real_distribution<> distr(0, 1);
+
+    uint64_t local_counter{};
+
+    for (uint64_t n = 0; n < noOfTrials; ++n)
     {
-        double x = rand() / static_cast<double>(RAND_MAX);
-        double y = rand() / static_cast<double>(RAND_MAX);
+        double x = distr(rnd_gen);
+        double y = distr(rnd_gen);
         if (x * x + y * y < 1)
-            result++;
+        {
+            local_counter++;
+        }
     }
+
+    result += local_counter;
 }
 
 void calculatePiMultithreading(unsigned long totalTrials, unsigned int countOfThreads)
@@ -30,11 +38,14 @@ void calculatePiMultithreading(unsigned long totalTrials, unsigned int countOfTh
     auto trialsPerWorker = totalTrials / countOfThreads;
     
     vector<std::thread> workers(countOfThreads);
-    vector<long> results(countOfThreads);
+    vector<uint64_t> results(countOfThreads);
        
+    std::random_device rd;
     for (auto i = 0; i < countOfThreads; ++i)
     {
-        workers[i] = thread {calculatePi, trialsPerWorker, std::ref(results[i])};
+        size_t seed = rd();
+        //workers[i] = thread{&calculatePi, seed,trialsPerWorker, std::ref(results[i])};
+        workers[i] = thread{[&results, seed, trialsPerWorker, i] { calculatePi(seed, trialsPerWorker, results[i]); } };
     }
     
     for (auto& workerThread : workers)
@@ -60,72 +71,10 @@ int main()
 {
     const long N = 100'000'000;
 
-    std::srand(static_cast<unsigned int>(std::time(nullptr)));
-
-    {
-        //////////////////////////////////////////////////////////////////////////////
-        // single thread
-        cout << "Single threaded version" << endl;
-        cout << "Pi calculation started!" << endl;
-        const auto start = chrono::high_resolution_clock::now();
-
-        long hits = 0;
-
-        for (long n = 0; n < N; ++n)
-        {
-            double x = rand() / static_cast<double>(RAND_MAX);
-            double y = rand() / static_cast<double>(RAND_MAX);
-            if (x * x + y * y < 1)
-                hits++;
-        }
-
-        const double pi = static_cast<double>(hits) / N * 4;
-
-        const auto end = chrono::high_resolution_clock::now();
-        const auto elapsed_time = chrono::duration_cast<chrono::milliseconds>(end - start).count();
-
-        cout << "Pi = " << pi << endl;
-        cout << "Elapsed = " << elapsed_time << "ms" << endl;
-
-        //////////////////////////////////////////////////////////////////////////////
-    }
-
     // Multi-threaded:
     auto countOfThreads = max(1u, thread::hardware_concurrency());
     calculatePiMultithreading(N, countOfThreads);
     calculatePiMultithreading(N, countOfThreads / 2);
     calculatePiMultithreading(N, countOfThreads / 4);
     calculatePiMultithreading(N, 1);
-
-    // {
-    //     cout << "Multi threaded version" << endl;
-    //     cout << "Pi calculation started!" << endl;
-    //     const auto start = chrono::high_resolution_clock::now();
-
-    //     // auto countOfThreads = max(1u, thread::hardware_concurrency());
-    //     // auto countOfThreads = max(1u, thread::hardware_concurrency() / 2);
-    //     auto countOfThreads = 2;
-    //     auto trialsPerWorker = N/countOfThreads;
-    //     vector<std::thread> workers(countOfThreads);
-    //     vector<long> results(countOfThreads);
-    //     cout << "Count of threads:" << countOfThreads << endl;
-    //     for(auto i=0; i< countOfThreads; ++i) {
-    //         workers[i] = thread{calculatePi, trialsPerWorker, std::ref(results[i])};
-    //     }
-    //     for(auto& workerThread : workers) {
-    //         workerThread.join();
-    //     }
-
-    //     long totalHits = 0;
-    //     for(auto& partialRes : results) {
-    //         totalHits += partialRes;
-    //     }
-    //    const double pi = static_cast<double>(totalHits) / N * 4;
-
-    //     const auto end = chrono::high_resolution_clock::now();
-    //     const auto elapsed_time = chrono::duration_cast<chrono::milliseconds>(end - start).count();
-
-    //     cout << "Pi = " << pi << endl;
-    //     cout << "Elapsed = " << elapsed_time << "ms" << endl;
-    // }
 }
