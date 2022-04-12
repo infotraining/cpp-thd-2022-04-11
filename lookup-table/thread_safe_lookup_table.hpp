@@ -32,7 +32,7 @@ private:
     public:
         Value value_for(const Key& key, const Value& default_value) const
         {
-            std::shared_lock lk{mutex_};
+            std::shared_lock lk{mutex_}; // non-exclusive lock - Section allowed for many readers
 
             const bucket_iterator found_entry = find_entry_for(key);
 
@@ -41,7 +41,7 @@ private:
 
         void add_or_update_mapping(const Key& key, const Value& value)
         {
-            std::unique_lock lk{mutex_};
+            std::unique_lock lk{mutex_}; // exclusive lock - SC
 
             const bucket_iterator found_entry = find_entry_for(key);
 
@@ -53,7 +53,7 @@ private:
 
         void remove_mapping(const Key& key)
         {
-            std::unique_lock lk{mutex_};
+            std::unique_lock lk{mutex_}; // exclusive lock - SC
 
             const bucket_iterator found_entry = find_entry_for(key);
             if (found_entry != data_.end())
