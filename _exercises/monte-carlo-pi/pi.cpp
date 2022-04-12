@@ -28,7 +28,7 @@ void calculatePi(size_t seed, uint64_t noOfTrials, uint64_t& result)
     result += local_counter;
 }
 
-void calculatePiMultithreading(unsigned long totalTrials, unsigned int countOfThreads)
+void calculatePiMultithreading(uint64_t totalTrials, uint16_t countOfThreads)
 {
     cout << "Multi threaded version" << endl;
     cout << "Pi calculation started! Number of threads:" << countOfThreads << endl;
@@ -53,7 +53,7 @@ void calculatePiMultithreading(unsigned long totalTrials, unsigned int countOfTh
         workerThread.join();
     }
 
-    long totalHits = 0;
+    uint64_t totalHits = 0;
     for (auto& partialRes : results)
     {
         totalHits += partialRes;
@@ -69,7 +69,7 @@ void calculatePiMultithreading(unsigned long totalTrials, unsigned int countOfTh
 
 int main()
 {
-    const long N = 100'000'000;
+    const uint64_t N = 100'000'000;
 
     // Multi-threaded:
     auto countOfThreads = max(1u, thread::hardware_concurrency());
