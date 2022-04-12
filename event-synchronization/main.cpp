@@ -10,22 +10,22 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <atomic>
 
 using namespace std::literals;
 
 namespace BusyWaits
 {
-
     class Data
     {
         std::vector<int> data_;
-        bool data_ready_ {false};
+        std::atomic<bool> data_ready_ {false};
 
     public:
         void read()
         {
             std::cout << "Start reading..." << std::endl;
-            data_.resize(100);
+            data_.resize(100);            
 
             std::random_device rnd;
             std::generate(begin(data_), end(data_), [&rnd]
@@ -33,12 +33,14 @@ namespace BusyWaits
             std::this_thread::sleep_for(2s);
             std::cout << "End reading..." << std::endl;
 
-            data_ready_ = true;
+            // XXXXXXXXXXXXXXXXXXXXXXXXXXXXXX
+            data_ready_ = true; // -> data_ready_.store(true, std::memory_order_seq_cst);
+
         }
 
         void process(int id)
         {
-            while (!data_ready_) 
+            while(!data_ready_) // -> while (!data_ready_.load(std::memory_order_seq_cst)) //XXXXXXXXXXXXXXXXXXXXXXX
             {
             }
 
@@ -48,7 +50,6 @@ namespace BusyWaits
         }
     };
 }
-
 
 int main()
 {
