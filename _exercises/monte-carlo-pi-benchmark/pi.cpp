@@ -13,6 +13,11 @@
 
 using namespace std;
 
+namespace ext
+{
+    constexpr auto hardware_destructive_interference_size = 64U;
+}
+
 namespace SingleThread
 {
     double calculatePi(uint64_t totalTrials)
@@ -139,7 +144,7 @@ namespace Multithreading
     {
         struct AlignedCounter
         {
-            alignas(std::hardware_destructive_interference_size) uint64_t value = 0;
+            alignas(ext::hardware_destructive_interference_size) uint64_t value = 0;
         };
 
         void calculateHits(size_t seed, uint64_t noOfTrials, AlignedCounter& result)
@@ -186,6 +191,110 @@ namespace Multithreading
     }
 }
 
+template <typename T>
+struct Synchronized
+{
+    T value;
+    std::mutex mtx_value;
+};
+
+template <typename F_, typename Value_>
+void apply(F_ f, Synchronized<Value_>& sync_value)
+{
+    std::lock_guard lk {sync_value.mtx_value};
+    f(sync_value.value);
+}
+
+namespace Multithreading
+{
+    namespace SharedMutableState
+    {
+        namespace WithMutex
+        {
+            void calculateHits(size_t seed, uint64_t noOfTrials, Synchronized<uint64_t>& hits)
+            {
+                mt19937_64 rnd_gen {seed};
+                uniform_real_distribution<> distr(0, 1);
+
+                for (uint64_t n = 0; n < noOfTrials; ++n)
+                {
+                    double x = distr(rnd_gen);
+                    double y = distr(rnd_gen);
+                    if (x * x + y * y < 1)
+                    {
+                        apply([](uint64_t& value) { ++value; }, hits);
+                    }
+                }
+            }
+
+            double calculatePi(uint64_t totalTrials, uint16_t countOfThreads)
+            {
+                auto trialsPerWorker = totalTrials / countOfThreads;
+
+                vector<std::thread> workers(countOfThreads);
+                Synchronized<uint64_t> totalHits {};
+
+                std::random_device rd;
+                for (auto i = 0; i < countOfThreads; ++i)
+                {
+                    size_t seed = rd();
+                    workers[i] = thread {[&totalHits, seed, trialsPerWorker]
+                        { calculateHits(seed, trialsPerWorker, totalHits); }};
+                }
+
+                for (auto& workerThread : workers)
+                    workerThread.join();
+
+                const double pi = static_cast<double>(totalHits.value) / totalTrials * 4;
+
+                return pi;
+            }
+        }
+
+        namespace WithAtomic
+        {
+            void calculateHits(size_t seed, uint64_t noOfTrials, std::atomic<uint64_t>& hits)
+            {
+                mt19937_64 rnd_gen {seed};
+                uniform_real_distribution<> distr(0, 1);
+
+                for (uint64_t n = 0; n < noOfTrials; ++n)
+                {
+                    double x = distr(rnd_gen);
+                    double y = distr(rnd_gen);
+                    if (x * x + y * y < 1)
+                    {
+                        ++hits;
+                    }
+                }
+            }
+
+            double calculatePi(uint64_t totalTrials, uint16_t countOfThreads)
+            {
+                auto trialsPerWorker = totalTrials / countOfThreads;
+
+                vector<std::thread> workers(countOfThreads);
+                std::atomic<uint64_t> totalHits {};
+
+                std::random_device rd;
+                for (auto i = 0; i < countOfThreads; ++i)
+                {
+                    size_t seed = rd();
+                    workers[i] = thread {[&totalHits, seed, trialsPerWorker]
+                        { calculateHits(seed, trialsPerWorker, totalHits); }};
+                }
+
+                for (auto& workerThread : workers)
+                    workerThread.join();
+
+                const double pi = static_cast<double>(totalHits) / totalTrials * 4;
+
+                return pi;
+            }
+        }
+    }
+}
+
 TEST_CASE("MonteCarlo Pi")
 {
     const uint64_t N = 4'000'000;
@@ -210,5 +319,15 @@ TEST_CASE("MonteCarlo Pi")
     BENCHMARK("MultiThread - padding")
     {
         return Multithreading::ver3::calculatePi(N, countOfThreads);
+    };
+
+    BENCHMARK("MultiThread - mutex")
+    {
+        return Multithreading::SharedMutableState::WithMutex::calculatePi(N, countOfThreads);
+    };
+
+    BENCHMARK("MultiThread - atomics")
+    {
+        return Multithreading::SharedMutableState::WithAtomic::calculatePi(N, countOfThreads);
     };
 }

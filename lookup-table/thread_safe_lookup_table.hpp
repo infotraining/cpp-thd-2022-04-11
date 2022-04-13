@@ -20,11 +20,17 @@ private:
         using bucket_value = std::pair<Key, Value>;
         using bucket_data = std::list<bucket_value>;
         using bucket_iterator = typename bucket_data::iterator;
+        using bucket_const_iterator = typename bucket_data::const_iterator;
 
         bucket_data data_;
         mutable std::shared_mutex mutex_;
 
-        bucket_iterator find_entry_for(const Key& key) const
+        bucket_iterator find_entry_for(const Key& key)
+        {
+            return std::find_if(data_.begin(), data_.end(), [&key](const auto& item) { return EqualTo{}(item.first, key); });
+        }
+
+        bucket_const_iterator find_entry_for(const Key& key) const
         {
             return std::find_if(data_.begin(), data_.end(), [&key](const auto& item) { return EqualTo{}(item.first, key); });
         }
@@ -32,16 +38,16 @@ private:
     public:
         Value value_for(const Key& key, const Value& default_value) const
         {
-            std::shared_lock lk{mutex_}; // non-exclusive lock - Section allowed for many readers
+            std::shared_lock lk{mutex_};
 
-            const bucket_iterator found_entry = find_entry_for(key);
+            bucket_const_iterator found_entry = find_entry_for(key);
 
             return (found_entry == data_.end()) ? default_value : found_entry->second;
         }
 
         void add_or_update_mapping(const Key& key, const Value& value)
         {
-            std::unique_lock lk{mutex_}; // exclusive lock - SC
+            std::unique_lock lk{mutex_};
 
             const bucket_iterator found_entry = find_entry_for(key);
 
@@ -53,7 +59,7 @@ private:
 
         void remove_mapping(const Key& key)
         {
-            std::unique_lock lk{mutex_}; // exclusive lock - SC
+            std::unique_lock lk{mutex_};
 
             const bucket_iterator found_entry = find_entry_for(key);
             if (found_entry != data_.end())
@@ -64,7 +70,7 @@ private:
     std::vector<std::unique_ptr<Bucket>> buckets_;
     Hash hasher_;
 
-    Bucket get_bucket(const Key& key) const
+    Bucket& get_bucket(const Key& key) const
     {
         auto const bucket_index = hasher_(key) % buckets_.size();
 

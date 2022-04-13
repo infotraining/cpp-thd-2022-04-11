@@ -18,7 +18,7 @@ struct Synchronized
     std::mutex mtx_value;
 };
 
-template <typename F_, typename Value_>
+template <typename F_, typename Value_> 
 void apply(F_ f, Synchronized<Value_>& sync_value)
 {
     std::lock_guard lk{sync_value.mtx_value}; // CS starts
