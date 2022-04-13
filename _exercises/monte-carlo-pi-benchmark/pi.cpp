@@ -264,7 +264,8 @@ namespace Multithreading
                     double y = distr(rnd_gen);
                     if (x * x + y * y < 1)
                     {
-                        ++hits;
+                        //++hits;
+                        hits.fetch_add(1ull, std::memory_order_relaxed);
                     }
                 }
             }
