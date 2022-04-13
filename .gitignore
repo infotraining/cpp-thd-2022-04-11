@@ -173,3 +173,5 @@ doc_pl/_build/*
 doc_en/_build/*
 code/.ionide/symbolCache.db
 _exercises/synchronization/a.out
+_exercises/thread-pool/.ionide/symbolCache.db
+futures/.ionide/symbolCache.db

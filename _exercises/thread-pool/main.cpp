@@ -8,6 +8,7 @@
 #include <string>
 #include <thread>
 #include <vector>
+#include <random>
 
 using namespace std::literals;
 
@@ -107,9 +108,17 @@ namespace ver_1_1
                     thd.join();
         }
 
-        void submit(const Task& task)
+        template <typename Callable>
+        auto submit(Callable&& callable) -> std::future<decltype(callable())>
         {
-            q_tasks_.push(task);
+            using ResultT = decltype(callable());
+
+            auto pt = std::make_shared<std::packaged_task<ResultT()>>(std::forward<Callable>(callable));
+            std::future<ResultT> fresult = pt->get_future();
+            
+            q_tasks_.push([pt] { (*pt)(); });
+
+            return fresult;
         }
 
     private:
@@ -147,6 +156,21 @@ void background_work(size_t id, const std::string& text, std::chrono::millisecon
     std::cout << "bw#" << id << " is finished..." << std::endl;
 }
 
+int calculate_square(int x)
+{
+    std::cout << "Starting calculation for " << x << " in " << std::this_thread::get_id() << std::endl;
+
+    std::random_device rd;
+    std::uniform_int_distribution<> distr(100, 5000);
+
+    std::this_thread::sleep_for(std::chrono::milliseconds(distr(rd)));
+
+    if (x % 3 == 0)
+        throw std::runtime_error("Error#3");
+
+    return x * x;
+}
+
 int main()
 {
     std::cout << "Main thread starts..." << std::endl;
@@ -161,9 +185,13 @@ int main()
     thread_pool.submit([&]
         { background_work(3, "thread pool", 30ms); });
 
-    for (size_t i = 4; i <= 40; ++i)
-        thread_pool.submit([i]()
-            { background_work(i, "thread pool", 30ms); });
+
+    std::future<int> fs19 = thread_pool.submit([] { return calculate_square(19); });
+    std::future<int> fs31 = thread_pool.submit([] { return calculate_square(31); });
+
+
+    std::cout << "19 * 19 = " << fs19.get() << std::endl;
+    std::cout << "31 * 31 = " << fs31.get() << std::endl;
 
     std::cout << "Main thread ends..." << std::endl;
 }

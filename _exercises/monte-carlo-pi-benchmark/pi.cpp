@@ -189,6 +189,48 @@ namespace Multithreading
             return pi;
         }
     }
+
+    namespace ver4
+    {
+        uint64_t calculateHits(size_t seed, uint64_t noOfTrials)
+        {
+            mt19937_64 rnd_gen {seed};
+            uniform_real_distribution<> distr(0, 1);
+            uint64_t localCounter{};
+            for (uint64_t n = 0; n < noOfTrials; ++n)
+            {
+                double x = distr(rnd_gen);
+                double y = distr(rnd_gen);
+                if (x * x + y * y < 1)
+                {
+                    ++localCounter;
+                }
+            }
+            return localCounter;
+        }
+
+        double calculatePi(uint64_t totalTrials, uint16_t countOfThreads)
+        {
+            auto trialsPerWorker = totalTrials / countOfThreads;
+
+            vector<std::future<uint64_t>> futures(countOfThreads);
+
+            std::random_device rd;
+            for (auto& f_task : futures)
+            {
+                // size_t seed = rd();
+                f_task = std::async(std::launch::async, &calculateHits, rd(), trialsPerWorker);
+            }
+
+            uint64_t totalHits{};
+            for (auto& f_task : futures)
+                totalHits += f_task.get();
+
+            const double pi = static_cast<double>(totalHits) / totalTrials * 4;
+
+            return pi;
+        }
+    }
 }
 
 template <typename T>
@@ -320,6 +362,11 @@ TEST_CASE("MonteCarlo Pi")
     BENCHMARK("MultiThread - padding")
     {
         return Multithreading::ver3::calculatePi(N, countOfThreads);
+    };
+
+    BENCHMARK("MultiThread - futures")
+    {
+        return Multithreading::ver4::calculatePi(N, countOfThreads);
     };
 
     BENCHMARK("MultiThread - mutex")
